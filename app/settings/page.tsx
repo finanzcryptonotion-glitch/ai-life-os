@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const MODELS = ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307', 'gpt-4o', 'gpt-4o-mini'];
+const MODELS = ['claude-sonnet-5', 'claude-opus-4-8', 'claude-haiku-4-5-20251001', 'claude-3-5-sonnet-20241022'];
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
