@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { run } from '@/lib/db';
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const db = getDb();
   const { id } = await params;
-  db.prepare('DELETE FROM income_entries WHERE id = ?').run(id);
+  await run('DELETE FROM income_entries WHERE id = ?', [id]);
   return NextResponse.json({ ok: true });
 }

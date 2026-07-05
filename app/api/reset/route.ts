@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { run } from '@/lib/db';
 
 export async function POST() {
-  const db = getDb();
-  db.prepare('DELETE FROM goals').run();
-  db.prepare('DELETE FROM tasks').run();
-  db.prepare('DELETE FROM events').run();
-  db.prepare('DELETE FROM income_entries').run();
-  db.prepare('DELETE FROM ecommerce_entries').run();
-  db.prepare('DELETE FROM trading_entries').run();
-  db.prepare('DELETE FROM health_entries').run();
-  db.prepare('DELETE FROM notes').run();
-  db.prepare("DELETE FROM sqlite_sequence WHERE name != 'settings'").run();
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('seeded', 'done')").run();
+  await run('DELETE FROM goals');
+  await run('DELETE FROM tasks');
+  await run('DELETE FROM events');
+  await run('DELETE FROM income_entries');
+  await run('DELETE FROM ecommerce_entries');
+  await run('DELETE FROM trading_entries');
+  await run('DELETE FROM health_entries');
+  await run('DELETE FROM notes');
+  await run('DELETE FROM habits');
+  await run('DELETE FROM habit_logs');
+  await run('DELETE FROM budget_entries');
+  await run('DELETE FROM budget_categories');
+  await run("INSERT OR REPLACE INTO settings (key, value) VALUES ('seeded', 'done')");
   return NextResponse.json({ ok: true });
 }
