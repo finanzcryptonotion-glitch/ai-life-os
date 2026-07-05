@@ -114,7 +114,7 @@ export async function run(sql: string, params: unknown[] = []): Promise<{ lastIn
   const pg = toPostgres(sql, params);
   const isInsert = pg.sql.trim().toUpperCase().startsWith('INSERT');
   const finalSql = isInsert && !pg.sql.toUpperCase().includes('RETURNING')
-    ? pg.sql + ' RETURNING id'
+    ? pg.sql + ' RETURNING *'
     : pg.sql;
   const res = await getPool().query(finalSql, pg.params);
   return { lastInsertRowid: res.rows[0]?.id || 0, changes: res.rowCount || 0 };
