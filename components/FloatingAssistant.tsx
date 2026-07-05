@@ -20,7 +20,7 @@ export default function FloatingAssistant() {
     if (!SR) { setResult('Browser unterstützt keine Spracheingabe.'); return; }
     const rec = new SR();
     rec.lang = 'de-DE';
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {

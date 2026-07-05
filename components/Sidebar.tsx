@@ -44,7 +44,7 @@ export default function Sidebar() {
     if (!SR) { setResult('Browser unterstützt keine Spracheingabe.'); return; }
     const rec = new SR();
     rec.lang = 'de-DE';
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (e: any) => {
       const t = Array.from(e.results).map((r: any) => r[0].transcript).join('');
