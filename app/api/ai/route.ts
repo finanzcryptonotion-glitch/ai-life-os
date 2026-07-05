@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
-  const db = getDb();
   const body = await req.json();
-  const { prompt, context_type } = body;
+  const { prompt } = body;
 
-  const settings = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-  const settingsMap = Object.fromEntries(settings.map(r => [r.key, r.value]));
-  const apiKey = settingsMap['ai_api_key'] || process.env.ANTHROPIC_API_KEY || '';
+  const rows = await query('SELECT key, value FROM settings') as { key: string; value: string }[];
+  const s = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  const apiKey = s['ai_api_key'] || process.env.ANTHROPIC_API_KEY || '';
 
   if (!apiKey) {
     return NextResponse.json({ error: 'Kein API Key konfiguriert. Bitte in den Einstellungen hinterlegen.' }, { status: 400 });
   }
 
-  const goals = db.prepare('SELECT * FROM goals WHERE status = "active"').all();
-  const tasks = db.prepare('SELECT * FROM tasks WHERE status NOT IN ("completed", "archived")').all();
+  const goals = await query('SELECT * FROM goals WHERE status = ?', ['active']);
+  const tasks = await query("SELECT * FROM tasks WHERE status NOT IN ('completed', 'archived')");
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayIncome = db.prepare('SELECT SUM(amount) as total FROM income_entries WHERE date = ?').get(todayStr) as { total: number };
-  const weekIncome = db.prepare(`SELECT SUM(amount) as total FROM income_entries WHERE date >= date('now', '-7 days')`).get() as { total: number };
+  const todayIncome = await queryOne('SELECT SUM(amount) as total FROM income_entries WHERE date = ?', [todayStr]) as { total: number } | null;
+  const weekIncome = await queryOne(`SELECT SUM(amount) as total FROM income_entries WHERE date >= ?`, [
+    new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0]
+  ]) as { total: number } | null;
 
   const systemPrompt = `Du bist der persönliche KI-Assistent von Fritz, einem deutschen Unternehmer und Trader.
 Fritz ist aktiv dabei, finanzielle Freiheit zu erreichen, um nach Bangkok oder Chiang Mai auszuwandern.
@@ -28,7 +29,7 @@ Sein monatliches Einkommensziel ist €5.000+.
 Aktive Ziele:
 ${(goals as { title: string; progress: number; priority: string }[]).map(g => `- ${g.title} (${g.progress}% Fortschritt, Priorität: ${g.priority})`).join('\n')}
 
-Offene Tasks: ${(tasks as { title: string }[]).length} Aufgaben
+Offene Tasks: ${tasks.length} Aufgaben
 Heutiges Einkommen: €${todayIncome?.total?.toFixed(2) || '0.00'}
 Einkommen diese Woche: €${weekIncome?.total?.toFixed(2) || '0.00'}
 
@@ -37,13 +38,9 @@ Antworte immer auf Deutsch. Sei konkret, direkt und handlungsorientiert.`;
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: settingsMap['ai_model'] || 'claude-3-5-sonnet-20241022',
+        model: s['ai_model'] || 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
         system: systemPrompt,
         messages: [{ role: 'user', content: prompt }],

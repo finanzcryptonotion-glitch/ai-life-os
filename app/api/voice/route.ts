@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { query, run } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
-  const db = getDb();
   const { text } = await req.json();
 
-  const settings = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-  const s = Object.fromEntries(settings.map(r => [r.key, r.value]));
+  const rows = await query('SELECT key, value FROM settings') as { key: string; value: string }[];
+  const s = Object.fromEntries(rows.map(r => [r.key, r.value]));
   const apiKey = s['ai_api_key'] || process.env.ANTHROPIC_API_KEY || '';
 
   if (!apiKey) return NextResponse.json({ error: 'Kein API Key konfiguriert.' }, { status: 400 });
@@ -33,14 +32,7 @@ Antworte NUR mit validem JSON in diesem Format:
 {
   "actions": [...],
   "summary": "kurze deutsche Bestätigung was du gemacht hast"
-}
-
-Beispiele:
-- "Füge Task hinzu: Morgen Meta Ads analysieren, hoch prio" → create_task
-- "Heute Trading: +450 Euro, Balance 26000" → add_trading
-- "Termin: Zahnarzt übermorgen um 10 Uhr" → create_event
-- "Ich habe heute 7 Stunden geschlafen und 83kg gewogen" → add_health
-- "Was sind meine Ziele?" → answer`;
+}`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -73,38 +65,39 @@ Beispiele:
     try {
       switch (action.type) {
         case 'create_task':
-          db.prepare('INSERT INTO tasks (title, description, priority, due_date, estimated_minutes, status, category) VALUES (?, ?, ?, ?, ?, ?, ?)')
-            .run(action.title, action.description || '', action.priority || 'medium', action.due_date || today, action.estimated_minutes || 60, action.status || 'todo', action.category || 'General');
+          await run('INSERT INTO tasks (title, description, priority, due_date, estimated_minutes, status, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [action.title, action.description || '', action.priority || 'medium', action.due_date || today, action.estimated_minutes || 60, action.status || 'todo', action.category || 'General']);
           executed.push(`Task erstellt: "${action.title}"`);
           break;
         case 'create_event':
-          db.prepare('INSERT INTO events (title, date, time, duration_minutes, category, location) VALUES (?, ?, ?, ?, ?, ?)')
-            .run(action.title, action.date, action.time || null, action.duration_minutes || 60, action.category || 'General', action.location || null);
+          await run('INSERT INTO events (title, date, time, duration_minutes, category, location) VALUES (?, ?, ?, ?, ?, ?)',
+            [action.title, action.date, action.time || null, action.duration_minutes || 60, action.category || 'General', action.location || null]);
           executed.push(`Termin erstellt: "${action.title}" am ${action.date}`);
           break;
         case 'create_goal':
-          db.prepare('INSERT INTO goals (title, description, category, target_date, priority, status) VALUES (?, ?, ?, ?, ?, ?)')
-            .run(action.title, action.description || '', action.category || 'Personal', action.target_date || null, action.priority || 'medium', 'active');
+          await run('INSERT INTO goals (title, description, category, target_date, priority, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [action.title, action.description || '', action.category || 'Personal', action.target_date || null, action.priority || 'medium', 'active']);
           executed.push(`Ziel erstellt: "${action.title}"`);
           break;
         case 'add_income':
-          db.prepare('INSERT INTO income_entries (amount, category, description, date) VALUES (?, ?, ?, ?)')
-            .run(action.amount, action.category, action.description || '', action.date || today);
+          await run('INSERT INTO income_entries (amount, category, description, date) VALUES (?, ?, ?, ?)',
+            [action.amount, action.category, action.description || '', action.date || today]);
           executed.push(`Einkommen eingetragen: €${action.amount} (${action.category})`);
           break;
         case 'add_health':
-          db.prepare('INSERT OR REPLACE INTO health_entries (date, body_weight, sleep_hours, workout, daily_score) VALUES (?, ?, ?, ?, ?)')
-            .run(action.date || today, action.body_weight || null, action.sleep_hours || null, action.workout || null, action.daily_score || 0);
+          await run('DELETE FROM health_entries WHERE date = ?', [action.date || today]);
+          await run('INSERT INTO health_entries (date, body_weight, sleep_hours, workout, daily_score) VALUES (?, ?, ?, ?, ?)',
+            [action.date || today, action.body_weight || null, action.sleep_hours || null, action.workout || null, action.daily_score || 0]);
           executed.push(`Health eingetragen für ${action.date || today}`);
           break;
         case 'add_trading':
-          db.prepare('INSERT INTO trading_entries (daily_pnl, account_balance, win_rate, notes, date) VALUES (?, ?, ?, ?, ?)')
-            .run(action.daily_pnl, action.account_balance, action.win_rate || 0, action.notes || '', action.date || today);
+          await run('INSERT INTO trading_entries (daily_pnl, account_balance, win_rate, notes, date) VALUES (?, ?, ?, ?, ?)',
+            [action.daily_pnl, action.account_balance, action.win_rate || 0, action.notes || '', action.date || today]);
           executed.push(`Trading eingetragen: ${Number(action.daily_pnl) > 0 ? '+' : ''}€${action.daily_pnl}`);
           break;
         case 'create_note':
-          db.prepare('INSERT INTO notes (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)')
-            .run(action.title, action.body || '', new Date().toISOString(), new Date().toISOString());
+          await run('INSERT INTO notes (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)',
+            [action.title, action.body || '', new Date().toISOString(), new Date().toISOString()]);
           executed.push(`Notiz erstellt: "${action.title}"`);
           break;
       }

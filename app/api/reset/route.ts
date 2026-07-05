@@ -2,18 +2,13 @@ import { NextResponse } from 'next/server';
 import { run } from '@/lib/db';
 
 export async function POST() {
-  await run('DELETE FROM goals');
-  await run('DELETE FROM tasks');
-  await run('DELETE FROM events');
-  await run('DELETE FROM income_entries');
-  await run('DELETE FROM ecommerce_entries');
-  await run('DELETE FROM trading_entries');
-  await run('DELETE FROM health_entries');
-  await run('DELETE FROM notes');
-  await run('DELETE FROM habits');
-  await run('DELETE FROM habit_logs');
-  await run('DELETE FROM budget_entries');
-  await run('DELETE FROM budget_categories');
-  await run("INSERT OR REPLACE INTO settings (key, value) VALUES ('seeded', 'done')");
+  const tables = ['goals', 'tasks', 'events', 'income_entries', 'ecommerce_entries',
+    'trading_entries', 'health_entries', 'notes', 'habits', 'habit_logs',
+    'budget_entries', 'budget_categories'];
+  for (const t of tables) {
+    await run(`DELETE FROM ${t}`);
+  }
+  await run('DELETE FROM settings WHERE key = ?', ['seeded']);
+  await run('INSERT INTO settings (key, value) VALUES (?, ?)', ['seeded', 'done']);
   return NextResponse.json({ ok: true });
 }

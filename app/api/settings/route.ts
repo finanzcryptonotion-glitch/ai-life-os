@@ -9,7 +9,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   for (const [key, value] of Object.entries(body)) {
-    await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)]);
+    await run('DELETE FROM settings WHERE key = ?', [key]);
+    await run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, String(value)]);
   }
   return NextResponse.json({ ok: true });
 }
